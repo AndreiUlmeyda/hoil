@@ -1,7 +1,7 @@
 #!/usr/bin/env stack
 -- stack runghc --resolver lts-7.13 --install-ghc --package shelly --package string-conversions --package optparse-applicative
 
-{-# LANGUAGE OverloadedStrings, ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings, ExtendedDefaultRules, DeriveGeneric, DeriveAnyClass #-}
 
 -- cmd line argument parsing
 import Options.Applicative (
@@ -11,6 +11,7 @@ import Options.Applicative (
 import Shelly (shelly, run)
 -- json processing
 import Data.Aeson ( (.:), decode, FromJSON(..), Value(..) )
+import GHC.Generics
 -- infix version of fmap
 import Control.Applicative ( (<$>), (<*>) )
 -- string handling
@@ -44,16 +45,8 @@ data Bookmark = Bookmark
   , index :: Int
   , tags :: String
   , title :: String
-  , uri :: String } deriving (Show)
+  , uri :: String } deriving (Show, Generic, FromJSON)
 
--- make it an instance of the type expected by the parsing library
-instance FromJSON Bookmark where
-  parseJSON (Object o) = Bookmark
-    <$> (o .: "description")
-    <*> (o .: "index")
-    <*> (o .: "tags")
-    <*> (o .: "title")
-    <*> (o .: "uri")
 programDescription = info (helper <*> argumentParser)
   ( fullDesc
   <> progDesc "Open or manipulate buku managed bookmarks."
