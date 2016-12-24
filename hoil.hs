@@ -25,19 +25,11 @@ main :: IO()
 main = do
   arguments <- execParser programDescription
   bookmarkJson <- fmap cs getBookmark :: IO ByteString
-  case decodeBookmark bookmarkJson of
-    Just bookmark -> print bookmark
-    Nothing -> print "No bookmark could be parsed."
+  let (Just bookmark) = decode bookmarkJson :: Maybe Bookmark
+  print bookmark
 
 getBookmark :: IO Text
-getBookmark = shelly $ run buku printAllAsJson
-  where
-    buku = "buku"
-    -- arguments to buku go into a list of strings
-    printAllAsJson = ["--print", "1", "--json"]
-
-decodeBookmark :: ByteString -> Maybe Bookmark
-decodeBookmark = decode
+getBookmark = shelly $ run "buku" ["--print", "1", "--json"]
 
 -- the data structure to parse bookmark data into
 data Bookmark = Bookmark
