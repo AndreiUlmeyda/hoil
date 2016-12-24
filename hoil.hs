@@ -3,14 +3,18 @@
 
 {-# LANGUAGE OverloadedStrings, ExtendedDefaultRules #-}
 
-import Shelly
-import Data.Text as T
-
-import Data.Aeson ((.:), decode, FromJSON(..), Value(..))
-import Control.Applicative ((<$>), (<*>))
+-- interaction with the shell
+import Shelly (shelly, run)
+-- json processing
+import Data.Aeson ( (.:), decode, FromJSON(..), Value(..) )
+-- infix version of fmap
+import Control.Applicative ( (<$>), (<*>) )
+-- string handling
+import Data.Text
 import Data.ByteString.Lazy (ByteString)
 import Data.String.Conversions (cs)
-default (T.Text)
+
+default (Text)
 
 main :: IO()
 main = do
