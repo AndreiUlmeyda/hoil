@@ -7,10 +7,11 @@
 import Options.Applicative (
   Parser, long, short, switch, help, progDesc,
   fullDesc, helper, info, header, execParser, (<>) )
+-- json processing
+import Data.Aeson ( (.:), decode, eitherDecode, FromJSON(..), Value(..) )
 -- interaction with the shell
 import Shelly (shelly, run, silently)
 -- json processing
-import Data.Aeson ( (.:), decode, FromJSON(..), Value(..) )
 import GHC.Generics
 -- infix version of fmap
 import Control.Applicative ( (<$>), (<*>) )
@@ -22,14 +23,42 @@ import Data.String.Conversions (cs)
 default (Text)
 
 main :: IO()
-main = do
-  arguments <- execParser programDescription
-  bookmarkJson <- fmap cs getBookmark :: IO ByteString
-  let (Just bookmark) = decode bookmarkJson :: Maybe Bookmark
-  print bookmark
+main = process <$> arguments <*> bookmarks >>= print
+
+process :: Arguments -> ByteString -> String
+process arguments bookmarks =
+  show (eitherDecode bookmarks :: Either String Bookmark) ++
+  show (getModeFrom arguments)
+
+arguments :: IO Arguments
+arguments = execParser programDescription
+
+bookmarks :: IO ByteString
+bookmarks = fmap cs queryBuku
 
 queryBuku :: IO Text
 queryBuku = shelly $ silently $ run "buku" ["--print", "1", "--json"]
+
+data Mode = Version | NonUniqueMode | Open | Tag | Title | Add
+  deriving Show
+
+getModeFrom :: Arguments -> Mode
+getModeFrom arguments
+  | version arguments = Version
+  | nonUniqueMode arguments = NonUniqueMode
+  | openMode arguments = Open
+  | tagMode arguments = Tag
+  | titleMode arguments = Title
+  | addMode arguments = Add
+
+nonUniqueMode :: Arguments -> Bool
+nonUniqueMode arguments = numberOfSpecifiedModes /= 1 where
+  numberOfSpecifiedModes = sum $ Prelude.map boolToInt modes
+  modes = [openMode arguments, tagMode arguments, titleMode arguments, addMode arguments]
+
+boolToInt :: Bool -> Int
+boolToInt True = 1
+boolToInt False = 0
 
 -- the data structure to parse bookmark data into
 data Bookmark = Bookmark
@@ -53,6 +82,9 @@ data Arguments = Arguments
   , pecoConfiguration :: Bool }
   deriving (Show)
 
+
+-- help text printing is handled directly by the parsing library, therefore,
+-- neither here nor as a mode, does it appear explicitly
 argumentParser :: Parser Arguments
 argumentParser = Arguments
   <$> switch
@@ -80,3 +112,4 @@ argumentParser = Arguments
     <> short 'p'
     <> help "Do not overwrite existing peco configuration" )
 
+-- try to beat 235 lines
