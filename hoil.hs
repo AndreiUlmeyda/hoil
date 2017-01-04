@@ -8,7 +8,7 @@ import Options.Applicative (
   Parser, long, short, switch, help, progDesc,
   fullDesc, helper, info, header, execParser, (<>) )
 -- interaction with the shell
-import Shelly (shelly, run)
+import Shelly (shelly, run, silently)
 -- json processing
 import Data.Aeson ( (.:), decode, FromJSON(..), Value(..) )
 import GHC.Generics
@@ -28,8 +28,8 @@ main = do
   let (Just bookmark) = decode bookmarkJson :: Maybe Bookmark
   print bookmark
 
-getBookmark :: IO Text
-getBookmark = shelly $ run "buku" ["--print", "1", "--json"]
+queryBuku :: IO Text
+queryBuku = shelly $ silently $ run "buku" ["--print", "1", "--json"]
 
 -- the data structure to parse bookmark data into
 data Bookmark = Bookmark
