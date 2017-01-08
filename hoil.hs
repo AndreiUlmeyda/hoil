@@ -1,5 +1,5 @@
 #!/usr/bin/env stack
--- stack runghc --resolver lts-7.13 --install-ghc --package shelly --package string-conversions --package optparse-applicative
+-- stack runghc --resolver lts-7.13 --install-ghc --package shelly --package string-conversions --package optparse-applicative --package aeson
 
 {-# LANGUAGE OverloadedStrings, ExtendedDefaultRules, DeriveGeneric, DeriveAnyClass #-}
 
@@ -9,10 +9,9 @@ import Options.Applicative (
   fullDesc, helper, info, header, execParser, (<>) )
 -- json processing
 import Data.Aeson ( (.:), decode, eitherDecode, FromJSON(..), Value(..) )
--- interaction with the shell
-import Shelly (shelly, run, silently)
--- json processing
 import GHC.Generics
+-- interaction with the shell
+import Shelly (shelly, run, cmd, silently)
 -- infix version of fmap
 import Control.Applicative ( (<$>), (<*>) )
 -- string handling
@@ -23,50 +22,56 @@ import Data.String.Conversions (cs)
 default (Text)
 
 main :: IO()
-main = process <$> arguments <*> bookmarks >>= print
-
-process :: Arguments -> ByteString -> String
-process arguments bookmarks =
-  show (eitherDecode bookmarks :: Either String Bookmark) ++
-  show (getModeFrom arguments)
-
-arguments :: IO Arguments
-arguments = execParser programDescription
-
-bookmarks :: IO ByteString
-bookmarks = fmap cs queryBuku
-
-queryBuku :: IO Text
-queryBuku = shelly $ silently $ run "buku" ["--print", "1", "--json"]
+main = fmap getModeFrom arguments >>= runMode
 
 data Mode = Version | NonUniqueMode | Open | Tag | Title | Add
-  deriving Show
+  deriving Eq
 
 getModeFrom :: Arguments -> Mode
 getModeFrom arguments
   | version arguments = Version
-  | nonUniqueMode arguments = NonUniqueMode
+  | multipleModes arguments = NonUniqueMode
   | openMode arguments = Open
+  -- default mode is open
+  | noMode arguments = Open
   | tagMode arguments = Tag
   | titleMode arguments = Title
   | addMode arguments = Add
 
-nonUniqueMode :: Arguments -> Bool
-nonUniqueMode arguments = numberOfSpecifiedModes /= 1 where
-  numberOfSpecifiedModes = sum $ Prelude.map boolToInt modes
-  modes = [openMode arguments, tagMode arguments, titleMode arguments, addMode arguments]
+multipleModes arguments = numberOfSpecifiedModes arguments > 1
+noMode arguments = numberOfSpecifiedModes arguments == 0
+arguments = execParser programDescription :: IO Arguments
+
+numberOfSpecifiedModes arguments = sum $ Prelude.map boolToInt modes where
+  modes = listOfModesFrom arguments
 
 boolToInt :: Bool -> Int
 boolToInt True = 1
 boolToInt False = 0
 
--- the data structure to parse bookmark data into
+listOfModesFrom :: Arguments -> [Bool]
+listOfModesFrom arguments =
+  [openMode arguments, tagMode arguments, titleMode arguments, addMode arguments]
+
+runMode :: Mode -> IO()
+runMode mode
+  | mode == Version = putStrLn currentVersion
+  | mode == NonUniqueMode = putStrLn errorMultipleModes
+  | mode == Open = decodedBookmarks >>= print
+  | otherwise = putStrLn "derp me a herp"
+
 data Bookmark = Bookmark
   { description :: String
   , index :: Int
   , tags :: String
   , title :: String
   , uri :: String } deriving (Show, Generic, FromJSON)
+
+decodedBookmarks = fmap eitherDecode bookmarks :: IO(Either String Bookmark)
+bookmarks = fmap cs queryBuku :: IO ByteString
+
+queryBuku :: IO Text
+queryBuku = shelly $ silently $ run "buku" ["--print", "1", "--json"]
 
 programDescription = info (helper <*> argumentParser)
   ( fullDesc
@@ -81,7 +86,6 @@ data Arguments = Arguments
   , addMode :: Bool
   , pecoConfiguration :: Bool }
   deriving (Show)
-
 
 -- help text printing is handled directly by the parsing library, therefore,
 -- neither here nor as a mode, does it appear explicitly
@@ -111,5 +115,9 @@ argumentParser = Arguments
     ( long "no-peco-reconfiguration"
     <> short 'p'
     <> help "Do not overwrite existing peco configuration" )
+
+currentVersion = "v0.1.0" :: String
+errorMultipleModes =
+  "hoil error: more than one of the modes to open/tag/title/add was specified"
 
 -- try to beat 235 lines
