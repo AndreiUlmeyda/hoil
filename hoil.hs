@@ -1,5 +1,5 @@
 #!/usr/bin/env stack
--- stack runghc --resolver lts-7.13 --install-ghc --package shelly --package string-conversions --package optparse-applicative --package aeson
+-- stack runghc --resolver lts-7.13 --install-ghc --package string-conversions --package optparse-applicative --package aeson --package hsshellscript
 
 {-# LANGUAGE OverloadedStrings, ExtendedDefaultRules, DeriveGeneric, DeriveAnyClass #-}
 
@@ -11,13 +11,14 @@ import Options.Applicative (
 import Data.Aeson ( (.:), decode, eitherDecode, FromJSON(..), Value(..) )
 import GHC.Generics
 -- interaction with the shell
-import Shelly (shelly, run, cmd, silently)
 -- infix version of fmap
 import Control.Applicative ( (<$>), (<*>) )
 -- string handling
 import Data.Text
 import Data.ByteString.Lazy (ByteString)
 import Data.String.Conversions (cs)
+
+import qualified HsShellScript as Sh
 
 default (Text)
 
@@ -70,8 +71,8 @@ data Bookmark = Bookmark
 decodedBookmarks = fmap eitherDecode bookmarks :: IO(Either String Bookmark)
 bookmarks = fmap cs queryBuku :: IO ByteString
 
-queryBuku :: IO Text
-queryBuku = shelly $ silently $ run "buku" ["--print", "1", "--json"]
+queryBuku :: IO String
+queryBuku =  Sh.pipe_from $ Sh.runprog "buku" ["--print", "1", "--json"]
 
 programDescription = info (helper <*> argumentParser)
   ( fullDesc
